@@ -162,7 +162,8 @@ export const resources = sqliteTable("resources", {
     maintenanceTitle: text("maintenanceTitle"),
     maintenanceMessage: text("maintenanceMessage"),
     maintenanceEstimatedTime: text("maintenanceEstimatedTime"),
-    postAuthPath: text("postAuthPath")
+    postAuthPath: text("postAuthPath"),
+    headerTokenHeaderName: text("headerTokenHeaderName") // null = disabled; when set, indicates the HTTP header name to check for token auth
 });
 
 export const targets = sqliteTable("targets", {
@@ -842,6 +843,20 @@ export const resourceHeaderAuthExtendedCompatibility = sqliteTable(
     }
 );
 
+export const resourceHeaderToken = sqliteTable("resourceHeaderToken", {
+    headerTokenId: text("headerTokenId").primaryKey().notNull(),
+    orgId: text("orgId")
+        .notNull()
+        .references(() => orgs.orgId, { onDelete: "cascade" }),
+    resourceId: integer("resourceId")
+        .notNull()
+        .references(() => resources.resourceId, { onDelete: "cascade" }),
+    tokenHash: text("tokenHash").notNull(),
+    title: text("title"),
+    expiresAt: integer("expiresAt", { mode: "number" }),
+    createdAt: integer("createdAt", { mode: "number" }).notNull()
+});
+
 export const resourceAccessToken = sqliteTable("resourceAccessToken", {
     accessTokenId: text("accessTokenId").primaryKey(),
     orgId: text("orgId")
@@ -1142,6 +1157,7 @@ export type ResourceHeaderAuthExtendedCompatibility = InferSelectModel<
     typeof resourceHeaderAuthExtendedCompatibility
 >;
 export type ResourceOtp = InferSelectModel<typeof resourceOtp>;
+export type ResourceHeaderToken = InferSelectModel<typeof resourceHeaderToken>;
 export type ResourceAccessToken = InferSelectModel<typeof resourceAccessToken>;
 export type ResourceWhitelist = InferSelectModel<typeof resourceWhitelist>;
 export type VersionMigration = InferSelectModel<typeof versionMigrations>;

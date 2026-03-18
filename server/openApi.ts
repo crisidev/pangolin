@@ -13,6 +13,7 @@ export enum OpenAPITags {
     Target = "Resource Target",
     Rule = "Rule",
     AccessToken = "Access Token",
+    HeaderToken = "Header Token",
     GlobalIdp = "Identity Provider (Global)",
     OrgIdp = "Identity Provider (Organization Only)",
     Client = "Client",

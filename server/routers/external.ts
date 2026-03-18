@@ -12,6 +12,7 @@ import * as client from "./client";
 import * as siteResource from "./siteResource";
 import * as supporterKey from "./supporterKey";
 import * as accessToken from "./accessToken";
+import * as headerToken from "./headerToken";
 import * as idp from "./idp";
 import * as blueprints from "./blueprints";
 import * as apiKeys from "./apiKeys";
@@ -22,6 +23,7 @@ import * as serverInfo from "./serverInfo";
 import HttpCode from "@server/types/HttpCode";
 import {
     verifyAccessTokenAccess,
+    verifyHeaderTokenAccess,
     verifySessionMiddleware,
     verifySessionUserMiddleware,
     verifyOrgAccess,
@@ -746,6 +748,31 @@ authenticated.get(
     verifyResourceAccess,
     verifyUserHasAction(ActionsEnum.listAccessTokens),
     accessToken.listAccessTokens
+);
+
+// Header token CRUD
+authenticated.post(
+    `/resource/:resourceId/header-token`,
+    verifyResourceAccess,
+    verifyLimits,
+    verifyUserHasAction(ActionsEnum.generateHeaderToken),
+    logActionAudit(ActionsEnum.generateHeaderToken),
+    headerToken.generateHeaderToken
+);
+
+authenticated.delete(
+    `/header-token/:headerTokenId`,
+    verifyHeaderTokenAccess,
+    verifyUserHasAction(ActionsEnum.deleteHeaderToken),
+    logActionAudit(ActionsEnum.deleteHeaderToken),
+    headerToken.deleteHeaderToken
+);
+
+authenticated.get(
+    `/resource/:resourceId/header-tokens`,
+    verifyResourceAccess,
+    verifyUserHasAction(ActionsEnum.listHeaderTokens),
+    headerToken.listHeaderTokens
 );
 
 authenticated.get(`/org/:orgId/overview`, verifyOrgAccess, org.getOrgOverview);

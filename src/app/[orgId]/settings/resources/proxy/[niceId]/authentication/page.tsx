@@ -1,5 +1,6 @@
 "use client";
 
+import CreateHeaderTokenForm from "@app/components/CreateHeaderTokenForm";
 import SetResourceHeaderAuthForm from "@app/components/SetResourceHeaderAuthForm";
 import SetResourcePincodeForm from "@app/components/SetResourcePincodeForm";
 import {
@@ -48,7 +49,8 @@ import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import { UserType } from "@server/types/UserTypes";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import SetResourcePasswordForm from "components/SetResourcePasswordForm";
-import { Binary, Bot, InfoIcon, Key } from "lucide-react";
+import { Input } from "@app/components/ui/input";
+import { Binary, Bot, InfoIcon, Key, Shield, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import {
@@ -209,6 +211,28 @@ export default function ResourceAuthenticationPage() {
     const [isSetPasswordOpen, setIsSetPasswordOpen] = useState(false);
     const [isSetPincodeOpen, setIsSetPincodeOpen] = useState(false);
     const [isSetHeaderAuthOpen, setIsSetHeaderAuthOpen] = useState(false);
+    const [isCreateHeaderTokenOpen, setIsCreateHeaderTokenOpen] =
+        useState(false);
+    const [headerTokenEnabled, setHeaderTokenEnabled] = useState(
+        !!resource.headerTokenHeaderName
+    );
+    const [headerTokenHeaderName, setHeaderTokenHeaderName] = useState(
+        resource.headerTokenHeaderName || "X-Pangolin-Token"
+    );
+    const [savingHeaderTokenSettings, setSavingHeaderTokenSettings] =
+        useState(false);
+    const [headerTokens, setHeaderTokens] = useState<
+        Array<{
+            headerTokenId: string;
+            title: string | null;
+            expiresAt: number | null;
+            createdAt: number;
+        }>
+    >([]);
+    const [loadingHeaderTokens, setLoadingHeaderTokens] = useState(false);
+    const [deletingTokenId, setDeletingTokenId] = useState<string | null>(
+        null
+    );
 
     const usersRolesForm = useForm({
         resolver: zodResolver(UsersRolesFormSchema),
@@ -413,6 +437,83 @@ export default function ResourceAuthenticationPage() {
             .finally(() => setLoadingRemoveResourceHeaderAuth(false));
     }
 
+    function fetchHeaderTokens() {
+        setLoadingHeaderTokens(true);
+        api.get(`/resource/${resource.resourceId}/header-tokens`)
+            .then((res) => {
+                setHeaderTokens(res.data.data.tokens);
+            })
+            .catch((e) => {
+                toast({
+                    variant: "destructive",
+                    title: t("headerTokenErrorList"),
+                    description: formatAxiosError(e, t("headerTokenErrorList"))
+                });
+            })
+            .finally(() => setLoadingHeaderTokens(false));
+    }
+
+    useEffect(() => {
+        if (resource.headerTokenHeaderName) {
+            fetchHeaderTokens();
+        }
+    }, [resource.headerTokenHeaderName]);
+
+    function saveHeaderTokenSettings() {
+        setSavingHeaderTokenSettings(true);
+        const value = headerTokenEnabled ? headerTokenHeaderName : null;
+        api.post(`/resource/${resource.resourceId}`, {
+            headerTokenHeaderName: value
+        })
+            .then(() => {
+                updateResource({ headerTokenHeaderName: value });
+                updateAuthInfo({ headerTokenHeaderName: value });
+                toast({
+                    title: headerTokenEnabled
+                        ? t("headerTokenEnabled")
+                        : t("headerTokenDisabled"),
+                    description: t("headerTokenAuthDescription")
+                });
+                if (headerTokenEnabled) {
+                    fetchHeaderTokens();
+                }
+            })
+            .catch((e) => {
+                toast({
+                    variant: "destructive",
+                    title: t("headerTokenErrorCreate"),
+                    description: formatAxiosError(
+                        e,
+                        t("headerTokenErrorCreateDescription")
+                    )
+                });
+            })
+            .finally(() => setSavingHeaderTokenSettings(false));
+    }
+
+    function deleteHeaderToken(headerTokenId: string) {
+        setDeletingTokenId(headerTokenId);
+        api.delete(`/header-token/${headerTokenId}`)
+            .then(() => {
+                toast({
+                    title: t("headerTokenDeleteConfirm"),
+                    description: t("headerTokenDeleteConfirmDescription")
+                });
+                fetchHeaderTokens();
+            })
+            .catch((e) => {
+                toast({
+                    variant: "destructive",
+                    title: t("headerTokenErrorDelete"),
+                    description: formatAxiosError(
+                        e,
+                        t("headerTokenErrorDeleteDescription")
+                    )
+                });
+            })
+            .finally(() => setDeletingTokenId(null));
+    }
+
     if (pageLoading) {
         return <></>;
     }
@@ -457,6 +558,17 @@ export default function ResourceAuthenticationPage() {
                         updateAuthInfo({
                             headerAuth: true
                         });
+                    }}
+                />
+            )}
+
+            {isCreateHeaderTokenOpen && (
+                <CreateHeaderTokenForm
+                    open={isCreateHeaderTokenOpen}
+                    setOpen={setIsCreateHeaderTokenOpen}
+                    resourceId={resource.resourceId}
+                    onTokenCreated={() => {
+                        fetchHeaderTokens();
                     }}
                 />
             )}
@@ -775,6 +887,157 @@ export default function ResourceAuthenticationPage() {
                             </div>
                         </SettingsSectionForm>
                     </SettingsSectionBody>
+                </SettingsSection>
+
+                <SettingsSection>
+                    <SettingsSectionHeader>
+                        <SettingsSectionTitle>
+                            {t("headerTokenAuth")}
+                        </SettingsSectionTitle>
+                        <SettingsSectionDescription>
+                            {t("headerTokenAuthDescription")}
+                        </SettingsSectionDescription>
+                    </SettingsSectionHeader>
+                    <SettingsSectionBody>
+                        <SettingsSectionForm>
+                            <SwitchInput
+                                id="header-token-toggle"
+                                label={
+                                    headerTokenEnabled
+                                        ? t("headerTokenEnabled")
+                                        : t("headerTokenDisabled")
+                                }
+                                checked={headerTokenEnabled}
+                                onCheckedChange={setHeaderTokenEnabled}
+                            />
+
+                            {headerTokenEnabled && (
+                                <>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium">
+                                            {t("headerTokenHeaderName")}
+                                        </label>
+                                        <Input
+                                            value={headerTokenHeaderName}
+                                            onChange={(e) =>
+                                                setHeaderTokenHeaderName(
+                                                    e.target.value
+                                                )
+                                            }
+                                            placeholder={t(
+                                                "headerTokenHeaderNameDefault"
+                                            )}
+                                        />
+                                        <p className="text-sm text-muted-foreground">
+                                            {t(
+                                                "headerTokenHeaderNameDescription"
+                                            )}
+                                        </p>
+                                    </div>
+
+                                    {resource.headerTokenHeaderName && (
+                                        <div className="space-y-3 mt-4">
+                                            <div className="flex items-center justify-between">
+                                                <label className="text-sm font-medium">
+                                                    {t("headerTokenGenerate")}
+                                                </label>
+                                                <Button
+                                                    variant="secondary"
+                                                    size="sm"
+                                                    onClick={() =>
+                                                        setIsCreateHeaderTokenOpen(
+                                                            true
+                                                        )
+                                                    }
+                                                >
+                                                    {t("headerTokenGenerate")}
+                                                </Button>
+                                            </div>
+
+                                            {loadingHeaderTokens ? (
+                                                <p className="text-sm text-muted-foreground">
+                                                    ...
+                                                </p>
+                                            ) : headerTokens.length === 0 ? (
+                                                <p className="text-sm text-muted-foreground">
+                                                    {t("headerTokenNone")}
+                                                </p>
+                                            ) : (
+                                                <div className="space-y-2">
+                                                    {headerTokens.map(
+                                                        (token) => (
+                                                            <div
+                                                                key={
+                                                                    token.headerTokenId
+                                                                }
+                                                                className="flex items-center justify-between border rounded-md p-2"
+                                                            >
+                                                                <div className="flex items-center space-x-3 text-sm">
+                                                                    <Shield
+                                                                        size="14"
+                                                                        className="text-muted-foreground"
+                                                                    />
+                                                                    <div>
+                                                                        <span className="font-medium">
+                                                                            {token.title ||
+                                                                                token.headerTokenId}
+                                                                        </span>
+                                                                        <div className="text-xs text-muted-foreground">
+                                                                            {new Date(
+                                                                                token.createdAt
+                                                                            ).toLocaleDateString()}{" "}
+                                                                            &middot;{" "}
+                                                                            {token.expiresAt
+                                                                                ? new Date(
+                                                                                      token.expiresAt
+                                                                                  ).toLocaleDateString()
+                                                                                : t(
+                                                                                      "headerTokenNeverExpire"
+                                                                                  )}
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    onClick={() =>
+                                                                        deleteHeaderToken(
+                                                                            token.headerTokenId
+                                                                        )
+                                                                    }
+                                                                    loading={
+                                                                        deletingTokenId ===
+                                                                        token.headerTokenId
+                                                                    }
+                                                                    disabled={
+                                                                        deletingTokenId ===
+                                                                        token.headerTokenId
+                                                                    }
+                                                                >
+                                                                    <Trash2
+                                                                        size="14"
+                                                                    />
+                                                                </Button>
+                                                            </div>
+                                                        )
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                        </SettingsSectionForm>
+                    </SettingsSectionBody>
+                    <SettingsSectionFooter>
+                        <Button
+                            onClick={saveHeaderTokenSettings}
+                            loading={savingHeaderTokenSettings}
+                            disabled={savingHeaderTokenSettings}
+                        >
+                            {t("save")}
+                        </Button>
+                    </SettingsSectionFooter>
                 </SettingsSection>
 
                 <OneTimePasswordFormSection

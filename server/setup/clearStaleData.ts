@@ -5,6 +5,7 @@ import {
     newtSessions,
     passwordResetTokens,
     resourceAccessToken,
+    resourceHeaderToken,
     resourceOtp,
     resourceSessions,
     sessions,
@@ -60,6 +61,14 @@ export async function clearStaleData() {
             .where(lt(resourceAccessToken.expiresAt, new Date().getTime()));
     } catch (e) {
         logger.warn("Error clearing expired resourceAccessToken:", e);
+    }
+
+    try {
+        await db
+            .delete(resourceHeaderToken)
+            .where(lt(resourceHeaderToken.expiresAt, new Date().getTime()));
+    } catch (e) {
+        logger.warn("Error clearing expired resourceHeaderToken:", e);
     }
 
     try {

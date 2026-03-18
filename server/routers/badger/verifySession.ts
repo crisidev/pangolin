@@ -33,6 +33,10 @@ import { getAsnForIp } from "@server/lib/asn";
 import { getOrgTierData } from "#dynamic/lib/billing";
 import { verifyPassword } from "@server/auth/password";
 import {
+    hashHeaderToken,
+    verifyHeaderToken
+} from "@server/auth/verifyHeaderToken";
+import {
     checkOrgAccessPolicy,
     enforceResourceSessionLength
 } from "#dynamic/lib/checkOrgAccessPolicy";
@@ -80,8 +84,6 @@ export async function verifyResourceSession(
     res: Response,
     next: NextFunction
 ): Promise<any> {
-    logger.debug("Verify session: Badger sent", req.body); // remove when done testing
-
     const parsedBody = verifyResourceSessionSchema.safeParse(req.body);
 
     if (!parsedBody.success) {
@@ -266,7 +268,8 @@ export async function verifyResourceSession(
             !pincode &&
             !password &&
             !resource.emailWhitelistEnabled &&
-            !headerAuth
+            !headerAuth &&
+            !resource.headerTokenHeaderName
         ) {
             logger.debug("Resource allowed because no auth");
 
@@ -282,6 +285,45 @@ export async function verifyResourceSession(
             );
 
             return allowed(res);
+        }
+
+        // Check custom header token (stateless SSO bypass)
+        if (resource.headerTokenHeaderName && headers) {
+            const headerName =
+                resource.headerTokenHeaderName.toLowerCase();
+            const clientTokenValue = Object.entries(headers).find(
+                ([k]) => k.toLowerCase() === headerName
+            )?.[1];
+            if (clientTokenValue) {
+                const tokenHash = hashHeaderToken(clientTokenValue);
+                const tokenCacheKey = `headerToken:${resource.resourceId}:${tokenHash}`;
+                let tokenValid = !!localCache.get(tokenCacheKey);
+
+                if (!tokenValid) {
+                    const result = await verifyHeaderToken({
+                        tokenHash,
+                        resourceId: resource.resourceId
+                    });
+                    if (result.valid) {
+                        localCache.set(tokenCacheKey, true, 5);
+                        tokenValid = true;
+                    }
+                }
+
+                if (tokenValid) {
+                    logRequestAudit(
+                        {
+                            action: true,
+                            reason: 108, // valid header token
+                            resourceId: resource.resourceId,
+                            orgId: resource.orgId,
+                            location: ipCC
+                        },
+                        parsedBody.data
+                    );
+                    return allowed(res);
+                }
+            }
         }
 
         const redirectPath = `/auth/resource/${encodeURIComponent(

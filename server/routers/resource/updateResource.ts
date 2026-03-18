@@ -64,7 +64,17 @@ const updateHttpResourceBodySchema = z
         maintenanceTitle: z.string().max(255).nullable().optional(),
         maintenanceMessage: z.string().max(2000).nullable().optional(),
         maintenanceEstimatedTime: z.string().max(100).nullable().optional(),
-        postAuthPath: z.string().nullable().optional()
+        postAuthPath: z.string().nullable().optional(),
+        headerTokenHeaderName: z
+            .string()
+            .min(1)
+            .max(255)
+            .regex(
+                /^[A-Za-z0-9\-]+$/,
+                "Header name can only contain letters, numbers, and hyphens"
+            )
+            .nullable()
+            .optional()
     })
     .refine((data) => Object.keys(data).length > 0, {
         error: "At least one field must be provided for update"

@@ -147,7 +147,8 @@ export const resources = pgTable("resources", {
     maintenanceTitle: text("maintenanceTitle"),
     maintenanceMessage: text("maintenanceMessage"),
     maintenanceEstimatedTime: text("maintenanceEstimatedTime"),
-    postAuthPath: text("postAuthPath")
+    postAuthPath: text("postAuthPath"),
+    headerTokenHeaderName: varchar("headerTokenHeaderName") // null = disabled; when set, indicates the HTTP header name to check for token auth
 });
 
 export const targets = pgTable("targets", {
@@ -500,6 +501,20 @@ export const resourceHeaderAuthExtendedCompatibility = pgTable(
             .default(true)
     }
 );
+
+export const resourceHeaderToken = pgTable("resourceHeaderToken", {
+    headerTokenId: varchar("headerTokenId").primaryKey().notNull(),
+    orgId: varchar("orgId")
+        .notNull()
+        .references(() => orgs.orgId, { onDelete: "cascade" }),
+    resourceId: integer("resourceId")
+        .notNull()
+        .references(() => resources.resourceId, { onDelete: "cascade" }),
+    tokenHash: varchar("tokenHash").notNull(),
+    title: varchar("title"),
+    expiresAt: bigint("expiresAt", { mode: "number" }),
+    createdAt: bigint("createdAt", { mode: "number" }).notNull()
+});
 
 export const resourceAccessToken = pgTable("resourceAccessToken", {
     accessTokenId: varchar("accessTokenId").primaryKey(),
@@ -1043,6 +1058,7 @@ export type ResourceHeaderAuthExtendedCompatibility = InferSelectModel<
     typeof resourceHeaderAuthExtendedCompatibility
 >;
 export type ResourceOtp = InferSelectModel<typeof resourceOtp>;
+export type ResourceHeaderToken = InferSelectModel<typeof resourceHeaderToken>;
 export type ResourceAccessToken = InferSelectModel<typeof resourceAccessToken>;
 export type ResourceWhitelist = InferSelectModel<typeof resourceWhitelist>;
 export type VersionMigration = InferSelectModel<typeof versionMigrations>;
