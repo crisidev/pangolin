@@ -45,24 +45,25 @@ export function verifyTokenResourceAccess(
         }
 
         try {
-        const { table, idColumn, resourceIdColumn } = tokenTables[tableName];
+            const { table, idColumn, resourceIdColumn } =
+                tokenTables[tableName];
 
-        const [token] = await db
-            .select({ resourceId: resourceIdColumn })
-            .from(table)
-            .where(eq(idColumn, tokenId))
-            .limit(1);
+            const [token] = await db
+                .select({ resourceId: resourceIdColumn })
+                .from(table)
+                .where(eq(idColumn, tokenId))
+                .limit(1);
 
-        if (!token) {
-            return next(
-                createHttpError(
-                    HttpCode.NOT_FOUND,
-                    `Token with ID ${tokenId} not found`
-                )
-            );
-        }
+            if (!token) {
+                return next(
+                    createHttpError(
+                        HttpCode.NOT_FOUND,
+                        `Token with ID ${tokenId} not found`
+                    )
+                );
+            }
 
-        const resourceId = token.resourceId;
+            const resourceId = token.resourceId;
             const [resource] = await db
                 .select()
                 .from(resources)

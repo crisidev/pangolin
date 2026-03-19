@@ -12,7 +12,7 @@ import {
     userInvites
 } from "@server/db";
 import logger from "@server/logger";
-import { lt } from "drizzle-orm";
+import { and, isNotNull, lt } from "drizzle-orm";
 
 export async function clearStaleData() {
     try {
@@ -66,7 +66,12 @@ export async function clearStaleData() {
     try {
         await db
             .delete(resourceHeaderToken)
-            .where(lt(resourceHeaderToken.expiresAt, new Date().getTime()));
+            .where(
+                and(
+                    isNotNull(resourceHeaderToken.expiresAt),
+                    lt(resourceHeaderToken.expiresAt, new Date().getTime())
+                )
+            );
     } catch (e) {
         logger.warn("Error clearing expired resourceHeaderToken:", e);
     }
